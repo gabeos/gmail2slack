@@ -1,49 +1,31 @@
-# gmail2slack
+# Gmail Service -> Slack
 
 
-This program will monitor your gmail inbox and when you receive a new email, it will send you a notification on slack.
+This program will monitor a Google Apps gmail inbox and when it receives a new email, it will send you a notification on slack.
 
-This is useful if you spend your day in slack talking with your team and at times forget that the rest of the world still uses email.
+Forked from brooksc/gmail2slack and modified to use service account and run in docker container
+
+We use this to push shared email accounts to slack.
 
 Installation
 
-1. Download this script
-2. run `pip install -r requirements.txt` to install the various libraries required
+1. `git clone https://github.com/gabeos/gmailservice2slack.git`
+2. `docker build -t gmailservice2slack .`
+3. Set environment variables as appropriate in docker-compose.yml | fig.yml
+3. docker-compose up -d
 
 ## Configuration
 
-
-gmail2slack config files by default are stored in the directory ~/.config/gmail2slack.  Create this directory.
-
-### Get a Gmail API Key
-Next you'll need a Gmail API Key
+### Create a Gmail Service Account & API Key
+Next you'll need a Gmail service account and API Key
 
 1. Obtain a google API key by visiting https://console.developers.google.com/project, create a project
 2. Once created, select the project and enable the Gmail API
 3. Under Oauth Select Create New Client ID
-4. Select Installed Application and click Configure
-5. Select your email address, enter a product name like gmail2slack.  Click Save
-6. Click Installed Application again and Other
-7. You should now have a Client ID for Native Application.  You'll need the Client ID and Client Secret later...
-
-### Create default_cs.json config
-
-Next you'll want to create a file with a name of ~/.config/gmail2slack/default_cs.json
-
-Add this file:
-```
-{
-  "installed": {
-    "client_id": "foo",
-    "client_secret":"foo",
-    "redirect_uris": ["http://localhost", "urn:ietf:wg:oauth:2.0:oob"],
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://accounts.google.com/o/oauth2/token"
-  }
-}
-```
-
-But replace the foo value in client_id and client_secret with what you generated from the gmail APi
+4. Select 'Service Account', click 'P12' for Key Type, and click 'Create Client ID'
+5. Save the generated key (you only get it once) 
+6. Decode the generated key (password is 'notasecret') : `openssl pkcs12 -in <downloaded key.p12> -nocerts -nodes >client.key`
+7. Make sure the key is saved as 'client.key' in the cloned directory, or modify the docker-compose.yml to fix the mount
 
 ### Get a Slack API Key
 
@@ -53,82 +35,26 @@ Next, get a Slack API key.
 2. Sign in if you need to
 3. Click Get Token
 
-### Create default.yaml
+### Environment Variables for Docker
 
-Last step - add the following to ~/.config/gmail2slack/default.yaml
-```
-slack_apikey: foo
-slack_user: yourname
-slack_from: gmail2slack
-client_secret: default_cs.json
-gmail2slack_pickle: default.pickle
-gmail2slack_oauth: default.oauth
-gmail_storage: default.gmail
-```
+#### Necessary
 
-Change foo to the slack API key
-Change yourname to your alias in slack
+* CLIENT_EMAIL: Listed on the google admin page when you created the service account as 'Email Address: ##...###-xxxxxxxx...xxx@developer.gserviceaccount.com'
+* EMAIL: Email address of the account you're trying to access, e.g. 'mary@cs.whatever.com'
+* SLACK_API_KEY: Slack API Key
 
-The rest you can leave as is.
+and at least one of:
 
-## Let's run this thing!
+* SLACK_USER_ID: Slack user ID
+* SLACK_USER: name of slack user to authenticate with, i.e. user that own API key
 
-### Run Once
+Note: SLACK_USER_ID takes precedence.
 
-If you are using the default_cs.json and default.yaml in ~/.config/gmail2slack as described above, then just run
+#### Optional
 
-`gmail2slack`
-
-It will check your inbox, send any slack notifications and exit.  This should be good for running fron cron, etc.
-
-When you run the script the first time, it will open a local browser (if possible) and ask you to sign in to gmail and give the script access to your gmail account.
-
-### Run Forever
-
-If you want to have it loop forever and sleep in between checks, run it with the -l command with an argument of the number of seconds to sleep.  For example
-
-`gmail2slack -l 60`
-
-## Use a different config file
-
-You can use the -c option to specify another directory for the config files, like
-
-`gmail2slack -c ~/.gmail2slack.cfg`
-
-For the following keys:
-
-```
-client_secret: default_cs.json
-gmail2slack_pickle: default.pickle
-gmail2slack_oauth: default.oauth
-gmail_storage: default.gmail
-```
-
-The filenames (e.g. default_cs.json) can be a relative path or fully qualified path (e..g /home/user/default_cs.json).  If it's a relative path, then it will look for the file in the same directory as the config file.
-
-If you have a case where you want to run this script with multiple gmail accounts, you could create a set of files for each account.
-
-## Run from crontab
-
-The easiest way to run this script is from crontab, have it once a minute (or whatever frequency) check for emails.  
-
-since there a number of python dependencies, I use virtualenv to contain them in a directory like ~/.virtualenv/default.  I then created a script like the one below:
-
-```
-#!/bin/sh
-source ~/.virtualenv/default/bin/activate
-~/github/gmail2slack/gmail2slack.py
-```
-
-which I saved to gmail2slack.sh and then run `crontab -e` and add a line like:
-
-```
-* * * * * ~/brooksc/github/gmail2slack.sh
-```
-
-Of course change the paths to match your environment
+* GMAIL_LABEL: If you only want to post messages with a certain label, specify if here. Defaults to 'INBOX'
+* DEBUG: Must be set to 'True' to enable debug output
+* LOOP: Time between checking for new mail. Defaults to 60 seconds. Setting loop to `0` will make the program exit after a single run.
+* SLACK_FROM: Name to use for slack post
 
 
-## Known Issues
-
-None -- I can 
